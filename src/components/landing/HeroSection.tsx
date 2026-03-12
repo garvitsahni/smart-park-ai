@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { ArrowRight, Car, Shield, Leaf, Heart, Sparkles, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const HeroSection: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <section className="relative min-h-screen flex items-center justify-center overflow-hidden pt-16">
       {/* Background effects - calmer */}
@@ -20,35 +23,34 @@ export const HeroSection: React.FC = () => {
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-subtle mb-8">
             <Sparkles className="w-4 h-4 text-primary" />
             <span className="text-sm font-medium text-muted-foreground">
-              Ethical AI-Powered Civic Mobility
+              {t('hero.badge')}
             </span>
           </div>
 
           {/* Main heading */}
           <h1 className="font-display text-5xl md:text-7xl font-bold leading-tight mb-6">
-            <span className="text-foreground">Parking That</span>
+            <span className="text-foreground">{t('hero.title1')}</span>
             <br />
-            <span className="gradient-text">Respects You</span>
+            <span className="gradient-text">{t('hero.title2')}</span>
           </h1>
 
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-6 leading-relaxed">
-            Park-Prabandh is human-centric smart parking for Indian cities. 
-            No penalties. Just rewards, transparency, and calm.
+            {t('hero.subtitle')}
           </p>
 
           {/* Ethics badges */}
           <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
             <span className="badge-civic px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5">
               <Shield className="w-3.5 h-3.5" />
-              Privacy-First
+              {t('hero.badgePrivacy')}
             </span>
             <span className="badge-eco px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5">
               <Leaf className="w-3.5 h-3.5" />
-              ESG Compliant
+              {t('hero.badgeEco')}
             </span>
             <span className="badge-reward px-3 py-1.5 rounded-full text-sm flex items-center gap-1.5">
               <Heart className="w-3.5 h-3.5" />
-              Rewards-Only
+              {t('hero.badgeReward')}
             </span>
           </div>
 
@@ -57,14 +59,14 @@ export const HeroSection: React.FC = () => {
             <Link to="/park">
               <Button size="lg" className="gap-2 bg-gradient-to-r from-primary to-cyan-500 text-primary-foreground px-8 py-6 text-lg rounded-2xl shadow-lg glow-calm">
                 <Car className="w-5 h-5" />
-                Start Parking
+                {t('hero.ctaStart')}
                 <ArrowRight className="w-5 h-5" />
               </Button>
             </Link>
             <Link to="/admin">
               <Button variant="outline" size="lg" className="gap-2 px-8 py-6 text-lg rounded-2xl">
                 <Eye className="w-5 h-5" />
-                View Dashboard
+                {t('hero.ctaView')}
               </Button>
             </Link>
           </div>

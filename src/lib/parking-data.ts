@@ -1,4 +1,7 @@
-// Simulated parking data and AI agent logic
+// Smart Park AI — Core Parking Data & AI Agent Logic
+// Now with vehicle types, enhanced pricing, and real calculations
+
+export type VehicleType = 'car' | 'suv' | 'bike' | 'ev';
 
 export interface ParkingSlot {
   id: string;
@@ -7,13 +10,18 @@ export interface ParkingSlot {
   number: number;
   status: 'available' | 'occupied' | 'reserved' | 'violation';
   vehicleNumber?: string;
+  vehicleType?: VehicleType;
   entryTime?: Date;
   assignedBy?: string;
+  reservedUntil?: Date;
+  reservedBy?: string;
+  hasEvCharger?: boolean;
 }
 
 export interface VehicleLog {
   id: string;
   vehicleNumber: string;
+  vehicleType: VehicleType;
   slotId: string;
   entryTime: Date;
   exitTime?: Date;
@@ -21,119 +29,201 @@ export interface VehicleLog {
   amount?: number;
   paymentMethod?: string;
   status: 'active' | 'completed' | 'violation';
+  ticketId: string;
+}
+
+export interface Reservation {
+  id: string;
+  vehicleNumber: string;
+  vehicleType: VehicleType;
+  slotId: string;
+  startTime: Date;
+  endTime: Date;
+  status: 'upcoming' | 'active' | 'completed' | 'cancelled';
+  createdAt: Date;
 }
 
 export interface DashboardStats {
   totalSlots: number;
   occupied: number;
   available: number;
+  reserved: number;
   violations: number;
   todayRevenue: number;
   weeklyRevenue: number;
   peakHour: string;
   averageStayDuration: number;
+  totalVehiclesToday: number;
+  evSlotsAvailable: number;
 }
 
-// Generate initial parking slots
+export interface ActiveSession {
+  vehicleNumber: string;
+  vehicleType: VehicleType;
+  assignedSlot: ParkingSlot;
+  entryTime: Date;
+  ticketId: string;
+}
+
+// Vehicle type configuration
+export const VEHICLE_TYPE_CONFIG: Record<VehicleType, { label: string; icon: string; ratePerHour: number; color: string }> = {
+  car: { label: 'Car', icon: '🚗', ratePerHour: 30, color: 'from-blue-500 to-indigo-500' },
+  suv: { label: 'SUV', icon: '🚙', ratePerHour: 45, color: 'from-purple-500 to-violet-500' },
+  bike: { label: 'Bike', icon: '🏍️', ratePerHour: 15, color: 'from-green-500 to-emerald-500' },
+  ev: { label: 'EV', icon: '⚡', ratePerHour: 25, color: 'from-cyan-500 to-teal-500' },
+};
+
+// Indian vehicle plate regex validation
+export const VEHICLE_NUMBER_REGEX = /^[A-Z]{2}\d{1,2}[A-Z]{0,3}\d{1,4}$/;
+
+export const validateVehicleNumber = (num: string): boolean => {
+  return VEHICLE_NUMBER_REGEX.test(num.replace(/\s/g, '').toUpperCase());
+};
+
+// Generate initial parking slots (only called once, on first install)
 export const generateParkingSlots = (): ParkingSlot[] => {
   const slots: ParkingSlot[] = [];
   const zones = ['A', 'B', 'C', 'D'];
   const floors = [1, 2, 3];
-  
+
   floors.forEach(floor => {
     zones.forEach(zone => {
       for (let i = 1; i <= 10; i++) {
-        const isOccupied = Math.random() > 0.6;
-        const isViolation = isOccupied && Math.random() > 0.9;
-        
+        // EV chargers: Floor 1, Zone A, slots 1-3
+        const hasEvCharger = floor === 1 && zone === 'A' && i <= 3;
+
         slots.push({
           id: `${floor}-${zone}-${i}`,
           floor,
           zone,
           number: i,
-          status: isViolation ? 'violation' : isOccupied ? 'occupied' : 'available',
-          vehicleNumber: isOccupied ? generateVehicleNumber() : undefined,
-          entryTime: isOccupied ? new Date(Date.now() - Math.random() * 4 * 60 * 60 * 1000) : undefined,
+          status: 'available',
+          hasEvCharger,
         });
       }
     });
   });
-  
+
   return slots;
 };
 
-// Generate random vehicle number
+// Generate random vehicle number (for demo seeding only)
 export const generateVehicleNumber = (): string => {
   const states = ['MH', 'DL', 'KA', 'TN', 'GJ', 'UP', 'RJ'];
   const state = states[Math.floor(Math.random() * states.length)];
   const district = Math.floor(Math.random() * 50) + 1;
-  const series = String.fromCharCode(65 + Math.floor(Math.random() * 26)) + 
+  const series = String.fromCharCode(65 + Math.floor(Math.random() * 26)) +
                  String.fromCharCode(65 + Math.floor(Math.random() * 26));
   const number = Math.floor(Math.random() * 9000) + 1000;
   return `${state}${district.toString().padStart(2, '0')}${series}${number}`;
 };
 
-// AI Slot Allocation Agent - Finds nearest available slot
-export const findNearestSlot = (slots: ParkingSlot[], preferredFloor?: number): ParkingSlot | null => {
-  const availableSlots = slots.filter(s => s.status === 'available');
-  
+// Generate ticket ID
+export const generateTicketId = (): string => {
+  const timestamp = Date.now().toString(36).toUpperCase();
+  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `TKT-${timestamp}-${random}`;
+};
+
+// AI Slot Allocation Agent — Finds optimal available slot
+export const findNearestSlot = (
+  slots: ParkingSlot[],
+  vehicleType?: VehicleType,
+  preferredFloor?: number
+): ParkingSlot | null => {
+  let availableSlots = slots.filter(s => s.status === 'available');
+
   if (availableSlots.length === 0) return null;
-  
-  // Prefer ground floor, then lower zones
+
+  // EV vehicles prefer slots with chargers
+  if (vehicleType === 'ev') {
+    const evSlots = availableSlots.filter(s => s.hasEvCharger);
+    if (evSlots.length > 0) {
+      availableSlots = evSlots;
+    }
+  }
+
+  // Bikes prefer specific zones (D — deeper, less traffic)
+  if (vehicleType === 'bike') {
+    const bikeSlots = availableSlots.filter(s => s.zone === 'D' || s.zone === 'C');
+    if (bikeSlots.length > 0) {
+      availableSlots = bikeSlots;
+    }
+  }
+
   const sortedSlots = availableSlots.sort((a, b) => {
-    // Prioritize preferred floor if specified
     if (preferredFloor) {
       if (a.floor === preferredFloor && b.floor !== preferredFloor) return -1;
       if (b.floor === preferredFloor && a.floor !== preferredFloor) return 1;
     }
-    
-    // Then sort by floor (lower first)
+
     if (a.floor !== b.floor) return a.floor - b.floor;
-    
-    // Then by zone (A first)
     if (a.zone !== b.zone) return a.zone.localeCompare(b.zone);
-    
-    // Then by slot number
     return a.number - b.number;
   });
-  
+
   return sortedSlots[0];
 };
 
-// AI Payment Agent - Calculate dynamic pricing
-export const calculateParkingFee = (entryTime: Date, exitTime: Date = new Date()): { 
-  duration: number; 
-  baseFee: number; 
-  dynamicMultiplier: number; 
+// AI Payment Agent — Enhanced dynamic pricing
+export const calculateParkingFee = (
+  entryTime: Date,
+  exitTime: Date = new Date(),
+  vehicleType: VehicleType = 'car',
+  trustScore?: number
+): {
+  duration: number;
+  baseFee: number;
+  dynamicMultiplier: number;
+  trustDiscount: number;
   totalFee: number;
   breakdown: string[];
 } => {
   const durationMs = exitTime.getTime() - entryTime.getTime();
-  const durationHours = durationMs / (1000 * 60 * 60);
-  
-  // Base rate: ₹30 per hour
-  const baseRate = 30;
-  const baseFee = Math.ceil(durationHours) * baseRate;
-  
-  // Dynamic pricing based on peak hours (10 AM - 2 PM, 6 PM - 9 PM)
+  const durationHours = Math.max(durationMs / (1000 * 60 * 60), 0);
+
+  // Vehicle-type-based rate
+  const config = VEHICLE_TYPE_CONFIG[vehicleType];
+  const baseRate = config.ratePerHour;
+
+  // Grace period: first 10 minutes free
+  const billableHours = durationHours <= (10 / 60) ? 0 : Math.ceil(durationHours);
+  const baseFee = billableHours * baseRate;
+
+  // Dynamic pricing based on peak hours
   const hour = new Date().getHours();
   const isPeakHour = (hour >= 10 && hour <= 14) || (hour >= 18 && hour <= 21);
-  const dynamicMultiplier = isPeakHour ? 1.5 : 1.0;
-  
-  const totalFee = Math.round(baseFee * dynamicMultiplier);
-  
+  const isWeekend = [0, 6].includes(new Date().getDay());
+  let dynamicMultiplier = 1.0;
+  if (isPeakHour) dynamicMultiplier = 1.5;
+  if (isWeekend) dynamicMultiplier *= 0.85; // Weekend discount
+
+  // Trust score discount
+  let trustDiscount = 0;
+  if (trustScore && trustScore >= 80) {
+    trustDiscount = 0.15; // 15% off for trusted
+  } else if (trustScore && trustScore >= 60) {
+    trustDiscount = 0.08; // 8% off for established
+  }
+
+  const afterDynamic = Math.round(baseFee * dynamicMultiplier);
+  const discountAmount = Math.round(afterDynamic * trustDiscount);
+  const totalFee = Math.max(0, afterDynamic - discountAmount);
+
   const breakdown = [
-    `Duration: ${Math.ceil(durationHours)} hour(s)`,
-    `Base Rate: ₹${baseRate}/hr`,
+    `Duration: ${billableHours === 0 ? 'Grace period' : `${billableHours} hour(s)`}`,
+    `Vehicle: ${config.label} (₹${baseRate}/hr)`,
     `Base Fee: ₹${baseFee}`,
-    isPeakHour ? `Peak Hour Surge: 1.5x` : 'Off-Peak Rate: 1x',
+    isPeakHour ? `Peak Hour Surge: 1.5×` : 'Off-Peak Rate: 1×',
+    ...(isWeekend ? ['Weekend Discount: 15% off'] : []),
+    ...(trustDiscount > 0 ? [`Trust Discount: ${Math.round(trustDiscount * 100)}% off (-₹${discountAmount})`] : []),
     `Total: ₹${totalFee}`,
   ];
-  
-  return { duration: durationHours, baseFee, dynamicMultiplier, totalFee, breakdown };
+
+  return { duration: durationHours, baseFee, dynamicMultiplier, trustDiscount, totalFee, breakdown };
 };
 
-// AI Compliance Agent - Check for violations
+// AI Compliance Agent — Check for violations
 export const checkViolation = (assignedSlot: string, actualSlot: string): {
   isViolation: boolean;
   penalty: number;
@@ -143,13 +233,13 @@ export const checkViolation = (assignedSlot: string, actualSlot: string): {
   return {
     isViolation,
     penalty: isViolation ? 200 : 0,
-    message: isViolation 
+    message: isViolation
       ? `Violation detected! Vehicle parked in ${actualSlot} instead of assigned ${assignedSlot}. Penalty: ₹200`
       : 'No violation detected.',
   };
 };
 
-// AI Analytics Agent - Predict peak hours
+// AI Analytics Agent — Predict peak hours
 export const predictPeakHours = (): { hour: number; occupancy: number }[] => {
   return [
     { hour: 6, occupancy: 15 },
@@ -173,67 +263,81 @@ export const predictPeakHours = (): { hour: number; occupancy: number }[] => {
   ];
 };
 
-// Generate mock vehicle logs
-export const generateVehicleLogs = (): VehicleLog[] => {
-  const logs: VehicleLog[] = [];
-  const paymentMethods = ['FASTag', 'UPI', 'Card', 'Cash'];
-  
-  for (let i = 0; i < 50; i++) {
-    const entryTime = new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000);
-    const isCompleted = Math.random() > 0.3;
-    const exitTime = isCompleted 
-      ? new Date(entryTime.getTime() + Math.random() * 4 * 60 * 60 * 1000)
-      : undefined;
-    
-    const duration = exitTime 
-      ? (exitTime.getTime() - entryTime.getTime()) / (1000 * 60 * 60)
-      : undefined;
-    
-    logs.push({
-      id: `LOG-${1000 + i}`,
-      vehicleNumber: generateVehicleNumber(),
-      slotId: `${Math.floor(Math.random() * 3) + 1}-${['A', 'B', 'C', 'D'][Math.floor(Math.random() * 4)]}-${Math.floor(Math.random() * 10) + 1}`,
-      entryTime,
-      exitTime,
-      duration,
-      amount: duration ? Math.round(Math.ceil(duration) * 30 * (Math.random() > 0.5 ? 1.5 : 1)) : undefined,
-      paymentMethod: isCompleted ? paymentMethods[Math.floor(Math.random() * paymentMethods.length)] : undefined,
-      status: Math.random() > 0.95 ? 'violation' : isCompleted ? 'completed' : 'active',
-    });
+// Generate revenue data from real logs
+export const generateRevenueFromLogs = (logs: VehicleLog[]) => {
+  const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const dailyMap: Record<string, { revenue: number; vehicles: number }> = {};
+
+  // Initialize last 7 days
+  for (let i = 6; i >= 0; i--) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = weekdays[date.getDay()];
+    dailyMap[key] = { revenue: 0, vehicles: 0 };
   }
-  
-  return logs.sort((a, b) => b.entryTime.getTime() - a.entryTime.getTime());
+
+  // Aggregate from logs
+  const now = new Date();
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  logs.forEach(log => {
+    if (log.status === 'completed' && log.exitTime && new Date(log.exitTime) >= weekAgo) {
+      const day = weekdays[new Date(log.exitTime).getDay()];
+      if (dailyMap[day]) {
+        dailyMap[day].revenue += log.amount || 0;
+        dailyMap[day].vehicles += 1;
+      }
+    }
+  });
+
+  return Object.entries(dailyMap).map(([day, data]) => ({
+    day,
+    revenue: data.revenue,
+    vehicles: data.vehicles,
+  }));
 };
 
-// Generate revenue data
-export const generateRevenueData = () => {
-  const daily = [];
-  const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  
-  for (let i = 0; i < 7; i++) {
-    daily.push({
-      day: weekdays[i],
-      revenue: Math.floor(Math.random() * 30000) + 20000,
-      vehicles: Math.floor(Math.random() * 300) + 200,
-    });
-  }
-  
-  return daily;
-};
-
-// Get dashboard stats
-export const getDashboardStats = (slots: ParkingSlot[]): DashboardStats => {
+// Get dashboard stats — computed from real data
+export const getDashboardStats = (slots: ParkingSlot[], logs: VehicleLog[] = []): DashboardStats => {
   const occupied = slots.filter(s => s.status === 'occupied' || s.status === 'violation').length;
+  const reserved = slots.filter(s => s.status === 'reserved').length;
   const violations = slots.filter(s => s.status === 'violation').length;
-  
+  const evAvailable = slots.filter(s => s.hasEvCharger && s.status === 'available').length;
+
+  // Compute revenue from real logs
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  const todayRevenue = logs
+    .filter(l => l.status === 'completed' && l.exitTime && new Date(l.exitTime) >= todayStart)
+    .reduce((sum, l) => sum + (l.amount || 0), 0);
+
+  const weeklyRevenue = logs
+    .filter(l => l.status === 'completed' && l.exitTime && new Date(l.exitTime) >= weekAgo)
+    .reduce((sum, l) => sum + (l.amount || 0), 0);
+
+  const todayVehicles = logs
+    .filter(l => new Date(l.entryTime) >= todayStart)
+    .length;
+
+  // Average stay duration from completed logs
+  const completedLogs = logs.filter(l => l.status === 'completed' && l.duration);
+  const avgDuration = completedLogs.length > 0
+    ? Math.round((completedLogs.reduce((sum, l) => sum + (l.duration || 0), 0) / completedLogs.length) * 10) / 10
+    : 0;
+
   return {
     totalSlots: slots.length,
     occupied,
-    available: slots.length - occupied,
+    available: slots.length - occupied - reserved,
+    reserved,
     violations,
-    todayRevenue: Math.floor(Math.random() * 50000) + 30000,
-    weeklyRevenue: Math.floor(Math.random() * 300000) + 200000,
+    todayRevenue,
+    weeklyRevenue,
     peakHour: '12:00 PM - 2:00 PM',
-    averageStayDuration: 2.5,
+    averageStayDuration: avgDuration,
+    totalVehiclesToday: todayVehicles,
+    evSlotsAvailable: evAvailable,
   };
 };

@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Car, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
-import { VehicleLog } from '@/lib/parking-data';
+import { Car, AlertTriangle, CheckCircle, Clock, Bike, Zap, Truck, Ticket } from 'lucide-react';
+import { VehicleLog, VehicleType, VEHICLE_TYPE_CONFIG } from '@/lib/parking-data';
 import { cn } from '@/lib/utils';
 import {
   Table,
@@ -17,6 +17,13 @@ interface VehicleLogsTableProps {
   logs: VehicleLog[];
   limit?: number;
 }
+
+const vehicleTypeEmoji: Record<VehicleType, string> = {
+  car: '🚗',
+  suv: '🚙',
+  bike: '🏍️',
+  ev: '⚡',
+};
 
 export const VehicleLogsTable: React.FC<VehicleLogsTableProps> = ({ logs, limit }) => {
   const displayLogs = limit ? logs.slice(0, limit) : logs;
@@ -47,11 +54,22 @@ export const VehicleLogsTable: React.FC<VehicleLogsTableProps> = ({ logs, limit 
     }
   };
 
+  if (displayLogs.length === 0) {
+    return (
+      <div className="glass-card-elevated p-8 text-center">
+        <Ticket className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+        <p className="text-muted-foreground text-sm">No vehicle logs yet. Park a vehicle to see activity here.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="glass-card-elevated overflow-hidden">
       <div className="p-6 border-b border-border">
         <h3 className="font-display text-lg font-semibold">Vehicle Logs</h3>
-        <p className="text-sm text-muted-foreground">Recent parking activity</p>
+        <p className="text-sm text-muted-foreground">
+          {limit ? `Showing latest ${displayLogs.length} of ${logs.length} records` : `${displayLogs.length} records`}
+        </p>
       </div>
 
       <div className="overflow-x-auto">
@@ -59,6 +77,7 @@ export const VehicleLogsTable: React.FC<VehicleLogsTableProps> = ({ logs, limit 
           <TableHeader>
             <TableRow className="border-border hover:bg-transparent">
               <TableHead className="text-muted-foreground">Vehicle</TableHead>
+              <TableHead className="text-muted-foreground">Type</TableHead>
               <TableHead className="text-muted-foreground">Slot</TableHead>
               <TableHead className="text-muted-foreground">Entry</TableHead>
               <TableHead className="text-muted-foreground">Exit</TableHead>
@@ -71,13 +90,18 @@ export const VehicleLogsTable: React.FC<VehicleLogsTableProps> = ({ logs, limit 
           <TableBody>
             {displayLogs.map((log) => (
               <TableRow key={log.id} className="border-border hover:bg-secondary/30">
-                <TableCell className="font-mono font-medium">{log.vehicleNumber}</TableCell>
+                <TableCell className="font-mono font-medium text-sm">{log.vehicleNumber}</TableCell>
+                <TableCell>
+                  <span className="text-sm" title={VEHICLE_TYPE_CONFIG[log.vehicleType || 'car']?.label}>
+                    {vehicleTypeEmoji[log.vehicleType || 'car']}
+                  </span>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{log.slotId}</TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {format(log.entryTime, 'MMM d, HH:mm')}
+                  {format(new Date(log.entryTime), 'MMM d, HH:mm')}
                 </TableCell>
                 <TableCell className="text-muted-foreground text-sm">
-                  {log.exitTime ? format(log.exitTime, 'MMM d, HH:mm') : '-'}
+                  {log.exitTime ? format(new Date(log.exitTime), 'MMM d, HH:mm') : '-'}
                 </TableCell>
                 <TableCell className="text-muted-foreground">
                   {log.duration ? `${log.duration.toFixed(1)}h` : '-'}

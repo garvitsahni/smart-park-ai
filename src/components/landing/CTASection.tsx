@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Car, LayoutDashboard } from 'lucide-react';
+import { ArrowRight, Car, LayoutDashboard, CalendarClock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 export const CTASection: React.FC = () => {
@@ -16,21 +16,27 @@ export const CTASection: React.FC = () => {
           </h2>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto mb-8">
             Experience the future of parking management with our AI-powered system. 
-            Start with a demo or explore the admin dashboard.
+            Park instantly, reserve ahead, or explore the admin dashboard.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/park">
               <Button variant="hero" size="lg">
                 <Car className="w-5 h-5 mr-2" />
-                Try Driver Interface
+                Park Now
                 <ArrowRight className="w-5 h-5 ml-2" />
+              </Button>
+            </Link>
+            <Link to="/reserve">
+              <Button variant="heroOutline" size="lg">
+                <CalendarClock className="w-5 h-5 mr-2" />
+                Reserve a Slot
               </Button>
             </Link>
             <Link to="/admin">
               <Button variant="heroOutline" size="lg">
                 <LayoutDashboard className="w-5 h-5 mr-2" />
-                Explore Dashboard
+                Dashboard
               </Button>
             </Link>
           </div>
