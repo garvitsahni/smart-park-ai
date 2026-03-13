@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, ArrowRight, Bot, MapPin, AlertCircle, Bike, Zap, Truck, Camera, Mic, TrendingUp, ScanLine, Accessibility } from 'lucide-react';
+import { Car, ArrowRight, Bot, MapPin, AlertCircle, Bike, Zap, Truck, Camera, Mic, TrendingUp, ScanLine, Accessibility, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -270,31 +270,48 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
             </div>
           </div>
 
-          {/* Time Selection Toggle */}
-          <div className="space-y-4 p-4 rounded-xl border border-border/50 bg-secondary/20">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-primary" />
-                <span className="text-sm font-medium">Select Parking Duration</span>
-              </div>
+          {/* Billing Mode / Duration Selection */}
+          <div className="space-y-3 p-4 rounded-xl border border-border/50 bg-secondary/10">
+            <div className="flex items-center gap-2 mb-2">
+              <Clock className="w-4 h-4 text-primary" />
+              <span className="text-sm font-semibold">Billing Mode</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2 mb-4">
               <button
                 type="button"
-                onClick={() => setUseDuration(!useDuration)}
+                onClick={() => setUseDuration(false)}
                 className={cn(
-                  "w-10 h-5 rounded-full transition-colors relative",
-                  useDuration ? "bg-primary" : "bg-muted"
+                  "p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1",
+                  !useDuration 
+                    ? "border-primary bg-primary/10 glow-calm" 
+                    : "border-border/50 hover:border-primary/30"
                 )}
               >
-                <div className={cn(
-                  "absolute top-1 w-3 h-3 rounded-full bg-white transition-all",
-                  useDuration ? "left-6" : "left-1"
-                )} />
+                <TrendingUp className="w-4 h-4 text-emerald-400" />
+                <span className="text-xs font-bold">Live Billing</span>
+                <span className="text-[9px] text-muted-foreground">Pay per time spent</span>
+              </button>
+              
+              <button
+                type="button"
+                onClick={() => setUseDuration(true)}
+                className={cn(
+                  "p-3 rounded-lg border-2 transition-all flex flex-col items-center gap-1",
+                  useDuration 
+                    ? "border-primary bg-primary/10 glow-calm" 
+                    : "border-border/50 hover:border-primary/30"
+                )}
+              >
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span className="text-xs font-bold">Fixed Stay</span>
+                <span className="text-[9px] text-muted-foreground">Pre-select duration</span>
               </button>
             </div>
             
             {useDuration && (
-              <div className="space-y-2 animate-scale-in">
-                <Label className="text-[10px] text-muted-foreground">HOURS</Label>
+              <div className="space-y-3 pt-2 border-t border-border/30 animate-scale-in">
+                <Label className="text-[10px] text-muted-foreground">STAY DURATION (HOURS)</Label>
                 <div className="grid grid-cols-5 gap-2">
                   {['1', '2', '4', '8', '12'].map((h) => (
                     <button
@@ -312,8 +329,18 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
                     </button>
                   ))}
                 </div>
-                <p className="text-[10px] text-muted-foreground italic">
-                  * Change will be calculated for {duration} hour(s) fixed stay.
+                <p className="text-[10px] text-muted-foreground italic flex items-center gap-1">
+                  <Bot className="w-3 h-3" />
+                  AI will prioritize slots optimized for {duration}h stay.
+                </p>
+              </div>
+            )}
+            
+            {!useDuration && (
+              <div className="p-2 rounded-lg bg-emerald-500/5 border border-emerald-500/20 animate-fade-in">
+                <p className="text-[10px] text-emerald-400 font-medium flex items-center gap-2">
+                  <CheckCircle className="w-3 h-3" />
+                  Live Billing Active: Charges calculated automatically on exit.
                 </p>
               </div>
             )}
