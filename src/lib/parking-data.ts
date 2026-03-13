@@ -16,6 +16,7 @@ export interface ParkingSlot {
   reservedUntil?: Date;
   reservedBy?: string;
   hasEvCharger?: boolean;
+  isAccessible?: boolean;
 }
 
 export interface VehicleLog {
@@ -91,6 +92,8 @@ export const generateParkingSlots = (): ParkingSlot[] => {
       for (let i = 1; i <= 10; i++) {
         // EV chargers: Floor 1, Zone A, slots 1-3
         const hasEvCharger = floor === 1 && zone === 'A' && i <= 3;
+        // Accessible (Old Age/Handicapped): Floor 1, Zone B, slots 1-3
+        const isAccessible = floor === 1 && zone === 'B' && i <= 3;
 
         slots.push({
           id: `${floor}-${zone}-${i}`,
@@ -99,6 +102,7 @@ export const generateParkingSlots = (): ParkingSlot[] => {
           number: i,
           status: 'available',
           hasEvCharger,
+          isAccessible,
         });
       }
     });
@@ -129,7 +133,8 @@ export const generateTicketId = (): string => {
 export const findNearestSlot = (
   slots: ParkingSlot[],
   vehicleType?: VehicleType,
-  preferredFloor?: number
+  preferredFloor?: number,
+  needsAccessible?: boolean
 ): ParkingSlot | null => {
   let availableSlots = slots.filter(s => s.status === 'available');
 
@@ -140,6 +145,14 @@ export const findNearestSlot = (
     const evSlots = availableSlots.filter(s => s.hasEvCharger);
     if (evSlots.length > 0) {
       availableSlots = evSlots;
+    }
+  }
+
+  // Accessibility preference
+  if (needsAccessible) {
+    const accessibleSlots = availableSlots.filter(s => s.isAccessible);
+    if (accessibleSlots.length > 0) {
+      availableSlots = accessibleSlots;
     }
   }
 

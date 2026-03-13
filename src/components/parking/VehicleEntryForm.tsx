@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, ArrowRight, Bot, MapPin, AlertCircle, Bike, Zap, Truck, Camera, Mic, TrendingUp, ScanLine } from 'lucide-react';
+import { Car, ArrowRight, Bot, MapPin, AlertCircle, Bike, Zap, Truck, Camera, Mic, TrendingUp, ScanLine, Accessibility } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -10,6 +10,7 @@ import { ParkingTicket } from './ParkingTicket';
 import { VisitIntent, allocateSlotByIntent, SlotAllocationResult } from '@/lib/parking-intelligence';
 import { useParking } from '@/context/ParkingContext';
 import { Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   Select,
   SelectContent,
@@ -19,7 +20,7 @@ import {
 } from '@/components/ui/select';
 
 interface VehicleEntryFormProps {
-  onSubmit: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string) => ParkingSlot | null;
+  onSubmit: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, isAccessible?: boolean) => ParkingSlot | null;
   isLoading?: boolean;
   preSelectedSlotId?: string;
 }
@@ -37,6 +38,7 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
   const [selectedType, setSelectedType] = useState<VehicleType>('car');
   const [selectedIntent, setSelectedIntent] = useState<VisitIntent | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string>(preSelectedSlotId || 'auto');
+  const [needsAccessible, setNeedsAccessible] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   React.useEffect(() => {
@@ -49,6 +51,7 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
   const [assignedSlot, setAssignedSlot] = useState<ParkingSlot | null>(null);
   const [allocationResult, setAllocationResult] = useState<SlotAllocationResult | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -64,7 +67,7 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
 
   const currentHour = new Date().getHours();
   const isPeakHour = (currentHour >= 10 && currentHour <= 14) || (currentHour >= 18 && currentHour <= 21);
-  const isSurgeActive = isPeakHour || (availableSlots.length / slots.length) < 0.2; // Surge if peak time or < 20% slots available
+  const isSurgeActive = isPeakHour || (availableSlots.length / slots.length) < 0.2;
 
   const simulateALPR = async () => {
     setIsScanning(true);
@@ -90,22 +93,18 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
     setError(null);
 
     const cleanNumber = vehicleNumber.replace(/\s/g, '').toUpperCase();
-
     if (!cleanNumber.trim()) {
       setError('Please enter a vehicle number');
       return;
     }
-
     if (!validateVehicleNumber(cleanNumber)) {
       setError('Invalid Indian vehicle number format (e.g., MH12AB1234)');
       return;
     }
-
     if (isAlreadyParked) {
       setError('This vehicle is already parked!');
       return;
     }
-
     if (!selectedIntent) {
       setError('Please select your visit purpose');
       return;
@@ -114,16 +113,14 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
     setIsProcessing(true);
     setStage('processing');
 
-    // Simulate AI processing
     await new Promise(resolve => setTimeout(resolve, 1800));
 
-    const slot = onSubmit(cleanNumber, selectedType, selectedSlotId === 'auto' ? undefined : selectedSlotId);
+    const slot = onSubmit(cleanNumber, selectedType, selectedSlotId === 'auto' ? undefined : selectedSlotId, needsAccessible);
     setAssignedSlot(slot);
 
     if (slot) {
       const result = allocateSlotByIntent([slot], selectedIntent);
       setAllocationResult(result);
-      // Get ticket ID from the session that was just created
       const session = JSON.parse(localStorage.getItem('smartpark_active_sessions') || '[]');
       const latestSession = session.find((s: any) => s.vehicleNumber === cleanNumber);
       setTicketId(latestSession?.ticketId || `TKT-${Date.now().toString(36).toUpperCase()}`);
@@ -140,6 +137,7 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
     setSelectedType('car');
     setSelectedIntent(null);
     setSelectedSlotId('auto');
+    setNeedsAccessible(false);
     setAssignedSlot(null);
     setAllocationResult(null);
     setError(null);
@@ -174,7 +172,6 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
             )}
           </div>
 
-          {/* Vehicle Number Input with Integrations */}
           <div className="space-y-2">
             <Label htmlFor="vehicleNumber" className="flex justify-between items-center">
               <span>Vehicle Number</span>
@@ -184,7 +181,6 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
                   onClick={simulateALPR}
                   disabled={isScanning || isListening}
                   className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 text-[10px] font-medium"
-                  title="Simulate ALPR Camera Scan"
                 >
                   {isScanning ? <ScanLine className="w-3.5 h-3.5 animate-pulse text-primary" /> : <Camera className="w-3.5 h-3.5" />}
                   ALPR Scan
@@ -194,7 +190,6 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
                   onClick={simulateVoiceCommand}
                   disabled={isScanning || isListening}
                   className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 text-[10px] font-medium"
-                  title="Simulate Voice Command"
                 >
                   {isListening ? <span className="flex gap-0.5"><span className="w-1 h-3 bg-primary animate-pulse"/><span className="w-1 h-3 bg-primary animate-pulse" style={{animationDelay: '100ms'}}/></span> : <Mic className="w-3.5 h-3.5" />}
                   Voice
@@ -215,21 +210,8 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
               maxLength={12}
               disabled={isScanning || isListening}
             />
-            {vehicleNumber.length > 3 && !isValidPlate && !isScanning && !isListening && (
-              <p className="text-xs text-destructive flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                Invalid format (e.g., MH12AB1234)
-              </p>
-            )}
-            {isAlreadyParked && (
-              <p className="text-xs text-amber-400 flex items-center gap-1">
-                <AlertCircle className="w-3 h-3" />
-                This vehicle is already parked
-              </p>
-            )}
           </div>
 
-          {/* Vehicle Type */}
           <div className="space-y-2">
             <Label>Vehicle Type</Label>
             <div className="grid grid-cols-4 gap-2">
@@ -254,9 +236,31 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
             </div>
           </div>
 
+          {/* Accessibility Toggle */}
+          <div className="flex items-center justify-between p-4 rounded-xl border-2 border-indigo-500/20 bg-indigo-500/5 hover:bg-indigo-500/10 transition-colors cursor-pointer group"
+               onClick={() => setNeedsAccessible(!needsAccessible)}>
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-10 h-10 rounded-lg flex items-center justify-center transition-all duration-300",
+                needsAccessible ? "bg-indigo-500 text-white shadow-lg shadow-indigo-500/30" : "bg-indigo-500/20 text-indigo-400"
+              )}>
+                <Accessibility className="w-6 h-6" />
+              </div>
+              <div className="text-left">
+                <div className="text-sm font-semibold">Old Age / Handicapped</div>
+                <div className="text-[10px] text-muted-foreground">Request priority accessible slot</div>
+              </div>
+            </div>
+            <div className={cn(
+              "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300",
+              needsAccessible ? "border-indigo-500 bg-indigo-500" : "border-border"
+            )}>
+              {needsAccessible && <div className="w-2 h-2 rounded-full bg-white" />}
+            </div>
+          </div>
+
           <IntentSelector selectedIntent={selectedIntent} onSelect={setSelectedIntent} />
 
-          {/* Slot Selector */}
           <div className="space-y-2">
             <Label>Preferred Parking Spot (Optional)</Label>
             <Select value={selectedSlotId} onValueChange={setSelectedSlotId}>
@@ -267,12 +271,11 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
                 <SelectItem value="auto">Wait for AI Allocation</SelectItem>
                 {availableSlots.map(slot => (
                   <SelectItem key={slot.id} value={slot.id}>
-                    Slot {slot.floor}-{slot.zone}-{slot.number} {slot.hasEvCharger ? '(EV Charger)' : ''}
+                    Slot {slot.floor}-{slot.zone}-{slot.number} {slot.hasEvCharger ? '(EV)' : ''} {slot.isAccessible ? '(Accessible)' : ''}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground mt-1">If "AI Allocation" is selected, the system will optimize slot placement by distance and vehicle intent.</p>
           </div>
 
           {error && (
@@ -304,27 +307,6 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
           <p className="text-muted-foreground text-sm mb-4">
             Analyzing {VEHICLE_TYPE_CONFIG[selectedType].label} parking needs...
           </p>
-          <div className="space-y-2 text-left max-w-xs mx-auto mb-4">
-            {[
-              'Scanning available slots...',
-              `Optimizing for ${selectedType === 'ev' ? 'EV charger proximity' : 'exit efficiency'}...`,
-              'Calculating expected duration...',
-            ].map((step, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-2 text-xs text-muted-foreground animate-fade-in-up"
-                style={{ animationDelay: `${i * 500}ms` }}
-              >
-                <div className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                {step}
-              </div>
-            ))}
-          </div>
-          <div className="flex items-center justify-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
         </div>
       )}
 
@@ -340,22 +322,8 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
             <div className="text-4xl font-display font-bold gradient-text mb-2">
               {assignedSlot.floor}-{assignedSlot.zone}-{assignedSlot.number}
             </div>
-            <div className="flex items-center justify-center gap-4 text-sm text-muted-foreground">
-              <span>Floor {assignedSlot.floor}</span>
-              <span>•</span>
-              <span>Zone {assignedSlot.zone}</span>
-              {assignedSlot.hasEvCharger && (
-                <>
-                  <span>•</span>
-                  <span className="text-cyan-400 flex items-center gap-1">
-                    <Zap className="w-3 h-3" /> EV Charger
-                  </span>
-                </>
-              )}
-            </div>
           </div>
 
-          {/* Parking Ticket */}
           <ParkingTicket
             ticketId={ticketId}
             vehicleNumber={vehicleNumber.replace(/\s/g, '').toUpperCase()}
@@ -370,21 +338,6 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
 
           <Button variant="heroOutline" onClick={handleReset} className="w-full mt-4">
             Park Another Vehicle
-          </Button>
-        </div>
-      )}
-
-      {stage === 'assigned' && !assignedSlot && (
-        <div className="text-center py-8 animate-fade-in-up">
-          <div className="w-20 h-20 rounded-2xl bg-destructive/20 flex items-center justify-center mx-auto mb-6">
-            <Car className="w-10 h-10 text-destructive" />
-          </div>
-          <h3 className="font-display text-xl font-bold mb-2 text-destructive">No Slots Available</h3>
-          <p className="text-muted-foreground text-sm mb-6">
-            Sorry, all parking slots are currently occupied.
-          </p>
-          <Button variant="heroOutline" onClick={handleReset} className="w-full">
-            Try Again
           </Button>
         </div>
       )}

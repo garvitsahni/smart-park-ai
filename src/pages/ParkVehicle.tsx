@@ -7,7 +7,7 @@ import { ActiveSessions } from '@/components/parking/ActiveSessions';
 import { useParking } from '@/context/ParkingContext';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Car, CreditCard, Map, ListChecks, Zap } from 'lucide-react';
+import { Car, CreditCard, Map, ListChecks, Zap, Accessibility } from 'lucide-react';
 import { VehicleType } from '@/lib/parking-data';
 
 const ParkVehicle = () => {
@@ -18,8 +18,8 @@ const ParkVehicle = () => {
   const [selectedVehicleForExit, setSelectedVehicleForExit] = useState<string | undefined>();
   const [preSelectedSlotId, setPreSelectedSlotId] = useState<string | undefined>();
 
-  const handleStartParking = (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string) => {
-    const slot = startParking(vehicleNumber, vehicleType, preferredSlotId);
+  const handleStartParking = (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, isAccessible?: boolean) => {
+    const slot = startParking(vehicleNumber, vehicleType, preferredSlotId, isAccessible);
     if (slot) {
       setHighlightedSlot(slot.id);
       setSelectedFloor(slot.floor);
@@ -61,6 +61,12 @@ const ParkVehicle = () => {
               <Zap className="w-4 h-4" />{stats.evSlotsAvailable}
             </div>
             <div className="text-xs text-muted-foreground">EV Chargers</div>
+          </div>
+          <div className="glass-card p-4 text-center">
+            <div className="text-2xl font-bold text-indigo-400 flex items-center justify-center gap-1">
+              <Accessibility className="w-4 h-4" />{slots.filter(s => s.isAccessible && s.status === 'available').length}
+            </div>
+            <div className="text-xs text-muted-foreground">Accessible</div>
           </div>
           <div className="glass-card p-4 text-center">
             <div className="text-2xl font-bold text-purple-400">{activeSessions.length}</div>
@@ -119,7 +125,7 @@ const ParkVehicle = () => {
               </div>
 
               <div className="text-center text-sm text-muted-foreground mb-4">
-                💡 Tip: Click on any available spot to immediately select it for parking. Look for the <Zap className="w-3 h-3 inline text-cyan-400" /> icon for EV Chargers.
+                💡 Tip: Click on any available spot to immediately select it for parking. Look for the <Zap className="w-3 h-3 inline text-cyan-400" /> icon for EV Chargers and <Accessibility className="w-3 h-3 inline text-indigo-400" /> for Accessible spots.
               </div>
 
               <ParkingGrid

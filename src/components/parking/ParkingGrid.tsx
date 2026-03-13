@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Car, AlertTriangle, Zap, Clock, MapPin } from 'lucide-react';
+import { Car, AlertTriangle, Zap, Clock, MapPin, Accessibility } from 'lucide-react';
 import { ParkingSlot } from '@/lib/parking-data';
 import { cn } from '@/lib/utils';
 
@@ -83,6 +83,7 @@ export const ParkingGrid: React.FC<ParkingGridProps> = ({
                         slot.status === 'reserved' && 'bg-blue-500/15 border-blue-500/40 text-blue-400 cursor-default',
                         isHighlighted && 'ring-2 ring-primary ring-offset-2 ring-offset-background animate-pulse-glow scale-110 z-10',
                         slot.hasEvCharger && slot.status === 'available' && 'border-cyan-500/50 bg-cyan-500/10',
+                        slot.isAccessible && slot.status === 'available' && 'border-indigo-500/50 bg-indigo-500/10',
                       )}
                     >
                       {slot.status === 'occupied' || slot.status === 'violation' ? (
@@ -92,9 +93,14 @@ export const ParkingGrid: React.FC<ParkingGridProps> = ({
                       ) : (
                         <>
                           <span className="text-xs font-medium">{slot.number}</span>
-                          {slot.hasEvCharger && (
-                            <Zap className="w-3 h-3 text-cyan-400" />
-                          )}
+                          <div className="flex gap-0.5 mt-0.5">
+                            {slot.hasEvCharger && (
+                              <Zap className="w-2.5 h-2.5 text-cyan-400" />
+                            )}
+                            {slot.isAccessible && (
+                              <Accessibility className="w-2.5 h-2.5 text-indigo-400" />
+                            )}
+                          </div>
                         </>
                       )}
                       {slot.status === 'violation' && (
@@ -170,6 +176,12 @@ export const ParkingGrid: React.FC<ParkingGridProps> = ({
             <Zap className="w-2.5 h-2.5 text-cyan-400" />
           </div>
           <span className="text-muted-foreground text-xs">EV Charger</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="w-4 h-4 rounded bg-indigo-500/10 border-2 border-indigo-500/50 flex items-center justify-center">
+            <Accessibility className="w-2.5 h-2.5 text-indigo-400" />
+          </div>
+          <span className="text-muted-foreground text-xs">Accessible</span>
         </div>
       </div>
     </div>

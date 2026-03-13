@@ -23,7 +23,7 @@ interface ParkingContextType {
   theme: 'dark' | 'light';
 
   // Actions
-  startParking: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string) => ParkingSlot | null;
+  startParking: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, needsAccessible?: boolean) => ParkingSlot | null;
   endParking: (vehicleNumber: string, paymentMethod: string) => { fee: number; breakdown: string[] } | null;
   reserveSlot: (vehicleNumber: string, vehicleType: VehicleType, startTime: Date, endTime: Date) => Reservation | null;
   cancelReservation: (reservationId: string) => void;
@@ -108,7 +108,7 @@ export const ParkingProvider: React.FC<{ children: ReactNode }> = ({ children })
     setStats(getDashboardStats(slots, vehicleLogs));
   }, [slots, vehicleLogs]);
 
-  const startParking = (vehicleNumber: string, vehicleType: VehicleType = 'car', preferredSlotId?: string): ParkingSlot | null => {
+  const startParking = (vehicleNumber: string, vehicleType: VehicleType = 'car', preferredSlotId?: string, needsAccessible?: boolean): ParkingSlot | null => {
     // Check if vehicle is already parked
     if (activeSessions.some(s => s.vehicleNumber === vehicleNumber)) {
       return null;
@@ -126,7 +126,7 @@ export const ParkingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     // Fallback to auto-assignment
     if (!targetSlot) {
-      targetSlot = findNearestSlot(slots, vehicleType) || undefined;
+      targetSlot = findNearestSlot(slots, vehicleType, undefined, needsAccessible) || undefined;
     }
 
     if (!targetSlot) return null;
