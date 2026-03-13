@@ -63,6 +63,7 @@ export interface ActiveSession {
   vehicleType: VehicleType;
   assignedSlot: ParkingSlot;
   entryTime: Date;
+  exitTime?: Date;
   ticketId: string;
 }
 
@@ -183,7 +184,8 @@ export const calculateParkingFee = (
   entryTime: Date,
   exitTime: Date = new Date(),
   vehicleType: VehicleType = 'car',
-  trustScore?: number
+  trustScore?: number,
+  fixedExitTime?: Date
 ): {
   duration: number;
   baseFee: number;
@@ -192,7 +194,8 @@ export const calculateParkingFee = (
   totalFee: number;
   breakdown: string[];
 } => {
-  const durationMs = exitTime.getTime() - entryTime.getTime();
+  const effectiveExit = fixedExitTime || exitTime;
+  const durationMs = effectiveExit.getTime() - entryTime.getTime();
   const durationHours = Math.max(durationMs / (1000 * 60 * 60), 0);
 
   // Vehicle-type-based rate

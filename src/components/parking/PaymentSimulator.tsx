@@ -67,7 +67,9 @@ export const PaymentSimulator: React.FC<PaymentSimulatorProps> = ({ selectedVehi
   const { totalFee, breakdown } = calculateParkingFee(
     new Date(activeSession.entryTime),
     new Date(),
-    activeSession.vehicleType || 'car'
+    activeSession.vehicleType || 'car',
+    undefined,
+    activeSession.exitTime
   );
 
   const handlePayment = async () => {

@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/select';
 
 interface VehicleEntryFormProps {
-  onSubmit: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, isAccessible?: boolean) => ParkingSlot | null;
+  onSubmit: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, isAccessible?: boolean, expectedHours?: number) => ParkingSlot | null;
   isLoading?: boolean;
   preSelectedSlotId?: string;
 }
@@ -39,6 +39,8 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
   const [selectedIntent, setSelectedIntent] = useState<VisitIntent | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string>(preSelectedSlotId || 'auto');
   const [needsAccessible, setNeedsAccessible] = useState(false);
+  const [useDuration, setUseDuration] = useState(false);
+  const [duration, setDuration] = useState('2');
   const [currentTime, setCurrentTime] = useState(new Date());
 
   React.useEffect(() => {
@@ -115,7 +117,14 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
 
     await new Promise(resolve => setTimeout(resolve, 1800));
 
-    const slot = onSubmit(cleanNumber, selectedType, selectedSlotId === 'auto' ? undefined : selectedSlotId, needsAccessible);
+    // Pass accessibility needs and expected duration to onSubmit
+    const slot = onSubmit(
+      cleanNumber, 
+      selectedType, 
+      selectedSlotId === 'auto' ? undefined : selectedSlotId, 
+      needsAccessible,
+      useDuration ? parseInt(duration) : undefined
+    );
     setAssignedSlot(slot);
 
     if (slot) {
@@ -138,6 +147,8 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
     setSelectedIntent(null);
     setSelectedSlotId('auto');
     setNeedsAccessible(false);
+    setUseDuration(false);
+    setDuration('2');
     setAssignedSlot(null);
     setAllocationResult(null);
     setError(null);
@@ -255,8 +266,57 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
               "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all duration-300",
               needsAccessible ? "border-indigo-500 bg-indigo-500" : "border-border"
             )}>
-              {needsAccessible && <div className="w-2 h-2 rounded-full bg-white" />}
+            {needsAccessible && <div className="w-2 h-2 rounded-full bg-white" />}
             </div>
+          </div>
+
+          {/* Time Selection Toggle */}
+          <div className="space-y-4 p-4 rounded-xl border border-border/50 bg-secondary/20">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium">Select Parking Duration</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setUseDuration(!useDuration)}
+                className={cn(
+                  "w-10 h-5 rounded-full transition-colors relative",
+                  useDuration ? "bg-primary" : "bg-muted"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-3 h-3 rounded-full bg-white transition-all",
+                  useDuration ? "left-6" : "left-1"
+                )} />
+              </button>
+            </div>
+            
+            {useDuration && (
+              <div className="space-y-2 animate-scale-in">
+                <Label className="text-[10px] text-muted-foreground">HOURS</Label>
+                <div className="grid grid-cols-5 gap-2">
+                  {['1', '2', '4', '8', '12'].map((h) => (
+                    <button
+                      key={h}
+                      type="button"
+                      onClick={() => setDuration(h)}
+                      className={cn(
+                        "py-2 rounded-lg border text-xs font-bold transition-all",
+                        duration === h 
+                          ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20" 
+                          : "bg-background border-border hover:border-primary/50"
+                      )}
+                    >
+                      {h}h
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground italic">
+                  * Change will be calculated for {duration} hour(s) fixed stay.
+                </p>
+              </div>
+            )}
           </div>
 
           <IntentSelector selectedIntent={selectedIntent} onSelect={setSelectedIntent} />

@@ -23,7 +23,7 @@ interface ParkingContextType {
   theme: 'dark' | 'light';
 
   // Actions
-  startParking: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, needsAccessible?: boolean) => ParkingSlot | null;
+  startParking: (vehicleNumber: string, vehicleType?: VehicleType, preferredSlotId?: string, needsAccessible?: boolean, expectedHours?: number) => ParkingSlot | null;
   endParking: (vehicleNumber: string, paymentMethod: string) => { fee: number; breakdown: string[] } | null;
   reserveSlot: (vehicleNumber: string, vehicleType: VehicleType, startTime: Date, endTime: Date) => Reservation | null;
   cancelReservation: (reservationId: string) => void;
@@ -108,7 +108,7 @@ export const ParkingProvider: React.FC<{ children: ReactNode }> = ({ children })
     setStats(getDashboardStats(slots, vehicleLogs));
   }, [slots, vehicleLogs]);
 
-  const startParking = (vehicleNumber: string, vehicleType: VehicleType = 'car', preferredSlotId?: string, needsAccessible?: boolean): ParkingSlot | null => {
+  const startParking = (vehicleNumber: string, vehicleType: VehicleType = 'car', preferredSlotId?: string, needsAccessible?: boolean, expectedHours?: number): ParkingSlot | null => {
     // Check if vehicle is already parked
     if (activeSessions.some(s => s.vehicleNumber === vehicleNumber)) {
       return null;
@@ -133,6 +133,7 @@ export const ParkingProvider: React.FC<{ children: ReactNode }> = ({ children })
 
     const entryTime = new Date();
     const ticketId = generateTicketId();
+    const exitTime = expectedHours ? new Date(entryTime.getTime() + expectedHours * 60 * 60 * 1000) : undefined;
 
     // Update slot status
     setSlots(prev => prev.map(slot =>
@@ -161,14 +162,15 @@ export const ParkingProvider: React.FC<{ children: ReactNode }> = ({ children })
     setVehicleLogs(prev => [newLog, ...prev]);
 
     // Create active session
-    const session: ActiveSession = {
+    const newSession: ActiveSession = {
       vehicleNumber,
       vehicleType,
       assignedSlot: { ...targetSlot!, status: 'occupied', vehicleNumber, vehicleType, entryTime },
       entryTime,
+      exitTime,
       ticketId,
     };
-    setActiveSessions(prev => [...prev, session]);
+    setActiveSessions(prev => [...prev, newSession]);
 
     return targetSlot!;
   };
@@ -180,7 +182,9 @@ export const ParkingProvider: React.FC<{ children: ReactNode }> = ({ children })
     const { totalFee, breakdown } = calculateParkingFee(
       new Date(session.entryTime),
       new Date(),
-      session.vehicleType
+      session.vehicleType,
+      undefined,
+      session.exitTime
     );
 
     // Update slot status
