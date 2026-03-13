@@ -107,10 +107,8 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
       setError('This vehicle is already parked!');
       return;
     }
-    if (!selectedIntent) {
-      setError('Please select your visit purpose');
-      return;
-    }
+    // Visit purpose is now optional, as Billing Mode provides context
+    const effectiveIntent = selectedIntent || 'general';
 
     setIsProcessing(true);
     setStage('processing');
@@ -128,7 +126,8 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
     setAssignedSlot(slot);
 
     if (slot) {
-      const result = allocateSlotByIntent([slot], selectedIntent);
+      // Use the selected intent or the fallback 'general' for AI allocation
+      const result = allocateSlotByIntent([slot], effectiveIntent as VisitIntent);
       setAllocationResult(result);
       const session = JSON.parse(localStorage.getItem('smartpark_active_sessions') || '[]');
       const latestSession = session.find((s: any) => s.vehicleNumber === cleanNumber);
@@ -377,9 +376,9 @@ export const VehicleEntryForm: React.FC<VehicleEntryFormProps> = ({ onSubmit, is
             variant="hero"
             size="lg"
             className="w-full"
-            disabled={!vehicleNumber.trim() || !selectedIntent || !isValidPlate || isAlreadyParked || isLoading}
+            disabled={!vehicleNumber.trim() || !isValidPlate || isAlreadyParked || isLoading}
           >
-            Find Parking Slot
+            {selectedIntent || useDuration ? 'Find Parking Slot' : 'Skip & Find Nearest Slot'}
             <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
         </form>

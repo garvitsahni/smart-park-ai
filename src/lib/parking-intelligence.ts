@@ -4,7 +4,7 @@
 // ADD-ON 1: Intent-Aware Parking Intelligence
 // ============================================
 
-export type VisitIntent = 'shopping' | 'movie' | 'dining' | 'office';
+export type VisitIntent = 'shopping' | 'movie' | 'dining' | 'office' | 'general';
 
 export interface IntentConfig {
   id: VisitIntent;
@@ -20,6 +20,7 @@ export const INTENT_CONFIGS: IntentConfig[] = [
   { id: 'movie', label: 'Movie', icon: '🎬', avgDuration: 3, zonePreference: 'balanced', floorPreference: [2, 1] },
   { id: 'dining', label: 'Dining', icon: '🍽️', avgDuration: 1.5, zonePreference: 'near-exit', floorPreference: [1] },
   { id: 'office', label: 'Office (Long Stay)', icon: '💼', avgDuration: 8, zonePreference: 'deep', floorPreference: [3, 2] },
+  { id: 'general', label: 'General', icon: '🚗', avgDuration: 2, zonePreference: 'balanced', floorPreference: [1, 2, 3] },
 ];
 
 export interface SlotAllocationResult {
