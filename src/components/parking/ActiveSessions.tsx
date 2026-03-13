@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Car, Clock, MapPin, CreditCard, Bike, Zap, Truck, ScanLine, Key, Ticket } from 'lucide-react';
+import { Car, Clock, MapPin, CreditCard, Bike, Zap, Truck, ScanLine, Key, Ticket, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useParking } from '@/context/ParkingContext';
 import { ActiveSession, VehicleType, VEHICLE_TYPE_CONFIG } from '@/lib/parking-data';
 import { useNotifications } from '@/context/NotificationContext';
 import { ARNavigationOverlay } from '@/components/parking/ARNavigationOverlay';
+import { ContactQRModal } from '@/components/parking/ContactQRModal';
 
 const vehicleIcons: Record<VehicleType, React.ReactNode> = {
   car: <Car className="w-4 h-4" />,
@@ -24,6 +25,7 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ onSelectForExit 
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<'valet' | 'find' | 'fastag' | null>(null);
   const [arNavigationSession, setArNavigationSession] = useState<ActiveSession | null>(null);
+  const [qrSession, setQrSession] = useState<ActiveSession | null>(null);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -120,6 +122,16 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ onSelectForExit 
                 <Button
                   variant="ghost"
                   size="sm"
+                  onClick={() => setQrSession(session)}
+                  className="text-xs px-2 glow-calm"
+                >
+                  <QrCode className="w-3.5 h-3.5 mr-1 text-primary"/>
+                  QR Pass
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
                   onClick={() => setArNavigationSession(session)}
                   className="text-xs px-2 glow-calm"
                 >
@@ -186,6 +198,11 @@ export const ActiveSessions: React.FC<ActiveSessionsProps> = ({ onSelectForExit 
           onClose={() => setArNavigationSession(null)} 
         />
       )}
+      <ContactQRModal
+        session={qrSession}
+        isOpen={!!qrSession}
+        onClose={() => setQrSession(null)}
+      />
     </div>
   );
 };
